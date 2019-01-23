@@ -4,12 +4,45 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/rkotov93/easyvk-go/easyvk"
 )
 
+const authURL = "https://oauth.vk.com/authorize" +
+	"?client_id=6826999" +
+	"&scope=" +
+	"&redirect_uri=https://oauth.vk.com/blank.html" +
+	"&display=wap" +
+	"&v=5.63" +
+	"&response_type=token"
+
 func main() {
-	from := flag.Int("f", 1, "Lower bound (optional)")
-	to := flag.Int("t", 100, "Upper bound (optional)")
+	token, low, upp, id := parseFlags()
+	vk := easyvk.WithToken(token)
+	user := getUser(&vk, id)
+	bdate := defineUserBdate(user, &vk, low, upp)
+
+	data := collectData(user, bdate)
+	printData(data)
+}
+
+func parseFlags() (string, int, int, string) {
+	token := flag.String("t", "", "Access token (optional)")
+	low := flag.Int("l", 1, "Lower bound (optional)")
+	upp := flag.Int("u", 100, "Upper bound (optional)")
 	flag.Parse()
+
+	if *token == "" {
+		fmt.Println(
+			"Access token was not provided. Use -t flag so specify it.",
+			"To get access token proceed to", authURL,
+			"login and copy 'access_token' param from URL",
+		)
+		os.Exit(1)
+	}
 
 	if len(flag.Args()) < 1 {
 		fmt.Println("ID was not specified.")
@@ -17,9 +50,88 @@ func main() {
 	}
 	id := flag.Args()[0]
 
-	fmt.Println(id, *from, *to)
+	return *token, *low, *upp, id
 }
 
-// city, country, home_town => hometown, sex, status, bdate => (birth_day, birth_month), interests
-// city,country,home_town,sex,status,bdate,interests
-// photo_id,verified,sex,bdate,city,country,home_town,has_photo,photo_50,photo_100,photo_200_orig,photo_200,photo_400_orig,photo_max,photo_max_orig,online,lists,domain,has_mobile,contacts,site,education,universities,schools,status,last_seen,followers_count,common_count,occupation,nickname,relatives,relation,personal,connections,exports,wall_comments,activities,interests,music,movies,tv,books,games,about,quotes,can_post,can_see_all_posts,can_see_audio,can_write_private_message,can_send_friend_request,is_favorite,is_hidden_from_feed,timezone,screen_name,maiden_name,crop_photo,is_friend,friend_status,career,military,blacklisted,blacklisted_by_me
+func defineUserBdate(user *easyvk.User, vk *easyvk.VK, low int, upp int) string {
+	fmt.Print("Calculating user's age...")
+	defer fmt.Print("\n\n")
+
+	dateArr := strings.Split(user.Bdate, ".")
+	bday, _ := strconv.Atoi(dateArr[0])
+	bmonth, _ := strconv.Atoi(dateArr[1])
+	var age, byear int
+
+	if len(dateArr) == 3 {
+		byear, _ = strconv.Atoi(dateArr[2])
+		age = calculateAgeFromYear(byear, bmonth, bday)
+	} else {
+		age = getUserAge(vk, user, low, upp)
+		byear = calculateByearFromAge(age, bmonth, bday)
+	}
+
+	return fmt.Sprintf("%d.%d.%d (%d years)", bday, bmonth, byear, age)
+}
+
+func calculateByearFromAge(age int, bmonth, bday int) int {
+	now := time.Now()
+	currentYearBdate := time.Date(now.Year(), time.Month(bmonth), bday, 0, 0, 0, 0, time.UTC)
+	if now.Before(currentYearBdate) {
+		age++
+	}
+	now = now.AddDate(-age, 0, 0)
+
+	return now.Year()
+}
+
+func calculateAgeFromYear(byear int, bmonth int, bday int) int {
+	now := time.Now()
+	age := now.Year() - byear
+
+	currentYearBdate := time.Date(now.Year(), time.Month(bmonth), bday, 0, 0, 0, 0, time.UTC)
+	if now.Before(currentYearBdate) {
+		age--
+	}
+
+	return age
+}
+
+func collectData(user *easyvk.User, bdate string) map[string]string {
+	data := make(map[string]string)
+
+	data["ID"] = strconv.FormatUint(user.ID, 10)
+	data["Name"] = user.FirstName + " " + user.LastName
+	data["Nickname"] = user.Nickname
+	data["Sex"] = defineSex(user.Sex)
+	data["Bdate"] = bdate
+	data["City"] = user.City.Title
+	data["Country"] = user.Country.Title
+	data["Relation"] = strconv.Itoa(int(user.Relation))
+
+	return data
+}
+
+func printData(data map[string]string) {
+	fmt.Println("==========")
+	fmt.Println("USER DATA:")
+	fmt.Println("==========")
+
+	keys := []string{"ID", "Name", "Nickname", "Sex", "Bdate", "City", "Country", "Relation"}
+	for i := range keys {
+		key := keys[i]
+		fmt.Println(key + ": " + data[key])
+	}
+
+	fmt.Println("==========")
+}
+
+func defineSex(sex uint8) string {
+	switch sex {
+	case 1:
+		return "Woman"
+	case 2:
+		return "Man"
+	}
+
+	return "undefined"
+}
