@@ -93,7 +93,7 @@ func isFilteredResultsContainUser(filteredResults *easyvk.UsersSearchResults, us
 	users := filteredResults.Items
 
 	index := -1
-	for i := 0; i < filteredResults.Count; i++ {
+	for i := 0; i < len(users); i++ {
 		if users[i].ID == user.ID {
 			index = i
 		}
