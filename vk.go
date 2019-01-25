@@ -23,7 +23,7 @@ func getUser(vk *easyvk.VK, id string) *easyvk.User {
 		"status", "bdate", "interests", "relation",
 	}
 
-	fmt.Printf("Getting general available informatin about %#v...\n", id)
+	fmt.Printf("Getting general available information about %#v...\n", id)
 	users, err := vk.Users.Get(ids, fields, "nom")
 	handleError(err)
 	return &users[0]
