@@ -23,7 +23,7 @@ func main() {
 	token, low, upp, id := parseFlags()
 	vk := easyvk.WithToken(token)
 	user := getUser(&vk, id)
-	bdate := defineUserBdate(user, &vk, low, upp)
+	bdate := defineUserBDate(user, &vk, low, upp)
 
 	data := collectData(user, bdate)
 	printData(data)
@@ -53,30 +53,34 @@ func parseFlags() (string, int, int, string) {
 	return *token, *low, *upp, id
 }
 
-func defineUserBdate(user *easyvk.User, vk *easyvk.VK, low int, upp int) string {
+func defineUserBDate(user *easyvk.User, vk *easyvk.VK, low int, upp int) string {
 	fmt.Print("Calculating user's age...")
 	defer fmt.Print("\n\n")
 
 	dateArr := strings.Split(user.Bdate, ".")
-	bday, _ := strconv.Atoi(dateArr[0])
-	bmonth, _ := strconv.Atoi(dateArr[1])
-	var age, byear int
-
-	if len(dateArr) == 3 {
-		byear, _ = strconv.Atoi(dateArr[2])
-		age = calculateAgeFromYear(byear, bmonth, bday)
-	} else {
-		age = getUserAge(vk, user, low, upp)
-		byear = calculateByearFromAge(age, bmonth, bday)
+	if len(dateArr) < 2 {
+		return ""
 	}
 
-	return fmt.Sprintf("%d.%d.%d (%d years)", bday, bmonth, byear, age)
+	bDay, _ := strconv.Atoi(dateArr[0])
+	bMonth, _ := strconv.Atoi(dateArr[1])
+	var age, bYear int
+
+	if len(dateArr) == 3 {
+		bYear, _ = strconv.Atoi(dateArr[2])
+		age = calculateAgeFrombYear(bYear, bMonth, bDay)
+	} else {
+		age = getUserAge(vk, user, low, upp)
+		bYear = calculatebYearFromAge(age, bMonth, bDay)
+	}
+
+	return fmt.Sprintf("%d.%d.%d (%d years)", bDay, bMonth, bYear, age)
 }
 
-func calculateByearFromAge(age int, bmonth, bday int) int {
+func calculatebYearFromAge(age int, bMonth, bDay int) int {
 	now := time.Now()
-	currentYearBdate := time.Date(now.Year(), time.Month(bmonth), bday, 0, 0, 0, 0, time.UTC)
-	if now.Before(currentYearBdate) {
+	currentYearBDate := time.Date(now.Year(), time.Month(bMonth), bDay, 0, 0, 0, 0, time.UTC)
+	if now.Before(currentYearBDate) {
 		age++
 	}
 	now = now.AddDate(-age, 0, 0)
@@ -84,12 +88,12 @@ func calculateByearFromAge(age int, bmonth, bday int) int {
 	return now.Year()
 }
 
-func calculateAgeFromYear(byear int, bmonth int, bday int) int {
+func calculateAgeFrombYear(bYear int, bMonth int, bDay int) int {
 	now := time.Now()
-	age := now.Year() - byear
+	age := now.Year() - bYear
 
-	currentYearBdate := time.Date(now.Year(), time.Month(bmonth), bday, 0, 0, 0, 0, time.UTC)
-	if now.Before(currentYearBdate) {
+	currentYearBDate := time.Date(now.Year(), time.Month(bMonth), bDay, 0, 0, 0, 0, time.UTC)
+	if now.Before(currentYearBDate) {
 		age--
 	}
 
@@ -103,7 +107,7 @@ func collectData(user *easyvk.User, bdate string) map[string]string {
 	data["Name"] = user.FirstName + " " + user.LastName
 	data["Nickname"] = user.Nickname
 	data["Sex"] = defineSex(user.Sex)
-	data["Bdate"] = bdate
+	data["BDate"] = bdate
 	data["City"] = user.City.Title
 	data["Country"] = user.Country.Title
 	data["Relation"] = strconv.Itoa(int(user.Relation))
@@ -116,7 +120,7 @@ func printData(data map[string]string) {
 	fmt.Println("USER DATA:")
 	fmt.Println("==========")
 
-	keys := []string{"ID", "Name", "Nickname", "Sex", "Bdate", "City", "Country", "Relation"}
+	keys := []string{"ID", "Name", "Nickname", "Sex", "BDate", "City", "Country", "Relation"}
 	for i := range keys {
 		key := keys[i]
 		fmt.Println(key + ": " + data[key])
